@@ -230,14 +230,13 @@ for i in range(len(prompts)):
 
 # In[75]:
 
-
 from contextlib import contextmanager
 
 # Get ModuleList from arbitrary transformer model
 # (Alternatively, we could pick the module list containing >50% of model params.)
 def get_hookable_blocks(model):
     assert isinstance(model, LlamaForCausalLM)
-    return [layer.mlp for layer in model.model.layers] + [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))]
+    return [layer for layer in model.model.layers] + [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))]
 
 @contextmanager
 def pre_hooks(hooks):
@@ -285,7 +284,7 @@ assert len(activations) == activations.count(None)
 
 _, cache = model.run_with_cache(
     input_ids.cuda(),
-    names_filter = lambda name: name.endswith("resid_mid") or name.endswith("ln2.hook_normalized"),
+    names_filter = lambda name: name.endswith("resid_pre") or name.endswith("ln2.hook_normalized"),
     device="cpu",
 )
 
