@@ -508,6 +508,7 @@ def convert_hf_model_config(model_name: str, **kwargs):
             "rotary_dim": 4096 // 32,
             "final_rms": True,
             "gated_mlp": True,
+            "default_prepend_bos": not "Llama-2".lower() in official_model_name.lower(), # Llama-2 tokenizer seems to auto add the BOS.,,?
         }
     elif "llama-13b" in official_model_name:
         cfg_dict = {
