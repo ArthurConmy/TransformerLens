@@ -236,7 +236,7 @@ from contextlib import contextmanager
 # (Alternatively, we could pick the module list containing >50% of model params.)
 def get_hookable_blocks(model):
     assert isinstance(model, LlamaForCausalLM)
-    return [layer for layer in model.model.layers] + [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))]
+    return [layer for layer in model.model.layers] + [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))] 
 
 @contextmanager
 def pre_hooks(hooks):
