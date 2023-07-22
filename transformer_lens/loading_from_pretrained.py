@@ -101,6 +101,7 @@ OFFICIAL_MODEL_NAMES = [
     "NeelNanda/SoLU_4L512W_Wiki_Finetune",
     "ArthurConmy/redwood_attn_2l",
     "llama-7b-hf",
+    "NousResearch/Llama-2-7b-hf",
     "llama-13b-hf",
     "llama-30b-hf",
     "llama-65b-hf",
@@ -417,6 +418,7 @@ MODEL_ALIASES = {
     ],
     "ArthurConmy/redwood_attn_2l": ["redwood_attn_2l"],
     "llama-7b-hf": ["llama-7b"],
+    "NousResearch/Llama-2-7b-hf": ["NousResearch/Llama-2-7b-hf"],
     "llama-13b-hf": ["llama-13b"],
     "llama-30b-hf": ["llama-30b"],
     "llama-65b-hf": ["llama-65b"],
@@ -487,7 +489,7 @@ def convert_hf_model_config(model_name: str, **kwargs):
         architecture = hf_config.architectures[0]
     else:
         architecture = "LLaMAForCausalLM"
-    if "llama-7b" in official_model_name:
+    if "llama-7b" in official_model_name or "Llama-2-7b" in official_model_name:
         cfg_dict = {
             "d_model": 4096,
             "d_head": 4096 // 32,
