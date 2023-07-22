@@ -180,7 +180,7 @@ model.generate("The capital of Germany is", max_new_tokens=10, temperature=0)
 
 # greedy sample
 
-generation= hf_model.generate(
+generation = hf_model.generate(
     input_ids=torch.tensor(tokenizer.encode("The capital of Germany is", return_tensors="pt")),
     max_length=10,
     # temperature=0.0,l
@@ -236,7 +236,7 @@ from contextlib import contextmanager
 # (Alternatively, we could pick the module list containing >50% of model params.)
 def get_hookable_blocks(model):
     assert isinstance(model, LlamaForCausalLM)
-    return [model.model.layers[i].self_attn.k_proj for i in range(len(model.model.layers))] + [layer for layer in model.model.layers]
+    return [model.model.layers[i].self_attn for i in range(len(model.model.layers))] + [layer for layer in model.model.layers]
 
 @contextmanager
 def not_pre_hooks(hooks):
@@ -285,14 +285,39 @@ input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Add batch dimen
 with residual_stream(hf_model) as activations:
     outputs = hf_model(input_ids)
 
-assert len(activations) == activations.count(None)
+assert len(activations) != activations.count(None)
+
+#%%
+
+# Sample text
+text = "Hello, how are you?"
+
+# Tokenize input and convert to tensor
+input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Add batch dimension
+
+outputs = hf_model(input_ids)
+
 
 # In[ ]:
 
 _, cache = model.run_with_cache(
     input_ids.cuda(),
-    names_filter = lambda name: name.endswith("hook_k"), #  or name.endswith("ln2.hook_normalized"),
+    names_filter = lambda name: name=="blocks.0.attn.hook_q", # name.endswith("rot_q"), #  or name.endswith("ln2.hook_normalized"),
     device="cpu",
+)
+
+#%%
+
+tl_query_rot = einops.rearrange(
+    cache["blocks.0.attn.hook_rot_q"],
+    "batch seq head d_head -> batch head seq d_head",
+)
+
+#%%
+
+tl_query_pre_rot = einops.rearrange(
+    cache["blocks.0.attn.hook_q"],
+    "batch seq head d_head -> batch head seq d_head",
 )
 
 #%%
@@ -302,7 +327,7 @@ fig = go.Figure()
 # add lines for each layer
 fig.add_trace(go.Scatter(
     x=np.arange(len(activations)//2),
-    y=torch.tensor([activations[i].norm() for i in range(len(activations)//2)]) / torch.tensor([cache[transformer_lens.utils.get_act_name("k", i)].norm() for i in range(len(activations)//2)]),
+    y=torch.tensor([activations[i][0].norm() for i in range(len(activations)//2)]) / torch.tensor([cache[transformer_lens.utils.get_act_name("attn_out", i)].norm() for i in range(len(activations)//2)]),
     name="Ratio of resid_pre norms between HF model and TL",
 ))
 
@@ -322,8 +347,60 @@ fig.add_trace(go.Scatter(
 # ))
 
 
+#%%
+
+# LLAMA FUNCTIONS
+
+def rotate_half(x):
+    """Rotates half the hidden dims of the input."""
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2 :]
+    return torch.cat((-x2, x1), dim=-1)
+
+
+def apply_rotary_pos_emb(q, k, cos, sin, position_ids):
+    # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
+    cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
+    sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
+    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+    return q_embed, k_embed
+
+def apply_rotary_pos_embed_just_to_q(q, cos, sin, position_ids):
+
+    # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
+    cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
+    sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
+    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    return q_embed
+
 # In[42]:
 
+# TL FUNCTIONS
+
+def apply_rotary(
+    self,
+    x: Float[torch.Tensor, "batch pos head_index d_head"],
+    past_kv_pos_offset=0,
+) -> Float[torch.Tensor, "batch pos head_index d_head"]:
+    # Only apply rotary to first rotary_dim dimensions (eg, if rotary_dim=64 and d_head=256, only apply to first 1/4 of dimensions)
+    x_pos = x.size(1)
+    x_rot = x[..., : self.cfg.rotary_dim]
+    x_pass = x[..., self.cfg.rotary_dim :]
+    x_flip = self.rotate_every_two(x_rot)
+    x_rotated = (
+        x_rot
+        * self.rotary_cos[past_kv_pos_offset : past_kv_pos_offset + x_pos, None, :]
+        + x_flip
+        * self.rotary_sin[past_kv_pos_offset : past_kv_pos_offset + x_pos, None, :]
+    )
+    return torch.cat([x_rotated, x_pass], dim=-1)
+
+#%%
 
 for i in range(len(prompts)): 
     # print(torch.allclose(logits[i], tl_logits[i], atol=1e-1, rtol=1e-1))
