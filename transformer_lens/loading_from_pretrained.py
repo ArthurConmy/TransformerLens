@@ -524,14 +524,14 @@ def convert_hf_model_config(model_name: str, **kwargs):
             "final_rms": True,
             "gated_mlp": True,
         }
-    elif "llama-13b" in official_model_name:
+    elif official_model_name.startswith(("llama-13b", "Llama-2-13b")): # same architecture for LLaMA and Llama-2
         cfg_dict = {
             "d_model": 5120,
             "d_head": 5120 // 40,
             "n_heads": 40,
             "d_mlp": 13824,
             "n_layers": 40,
-            "n_ctx": 2048,
+            "n_ctx": 2048 if official_model_name.startswith("llama-13b") else 4096,
             "eps": 1e-6,
             "d_vocab": 32000,
             "act_fn": "silu",
