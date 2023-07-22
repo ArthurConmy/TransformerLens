@@ -948,7 +948,7 @@ def get_pretrained_state_dict(
                     f"Checkpoints for model {official_model_name} are not supported"
                 )
         elif hf_model is None:
-            if "llama" in official_model_name:
+            if "llama" in official_model_name.lower():
                 raise NotImplementedError("Must pass in hf_model for LLaMA models")
             elif "bert" in official_model_name:
                 hf_model = BertForPreTraining.from_pretrained(
@@ -974,7 +974,7 @@ def get_pretrained_state_dict(
             state_dict = convert_gptj_weights(hf_model, cfg)
         elif cfg.original_architecture == "GPTNeoXForCausalLM":
             state_dict = convert_neox_weights(hf_model, cfg)
-        elif str(cfg.original_architecture).lower() == "LLaMAForCausalLM".lower(): # LLAMA 2 was capitalized differently
+        elif str(cfg.original_architecture).lower() == "LLaMAForCausalLM".lower(): # Llama-2 was capitalized differently
             state_dict = convert_llama_weights(hf_model, cfg)
         elif cfg.original_architecture == "BertForMaskedLM":
             state_dict = convert_bert_weights(hf_model, cfg)
