@@ -236,7 +236,7 @@ from contextlib import contextmanager
 # (Alternatively, we could pick the module list containing >50% of model params.)
 def get_hookable_blocks(model):
     assert isinstance(model, LlamaForCausalLM)
-    return [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))] + [layer for layer in model.model.layers]
+    return [model.model.layers[i].self_attn.k_proj for i in range(len(model.model.layers))] + [layer for layer in model.model.layers]
 
 @contextmanager
 def not_pre_hooks(hooks):
@@ -291,7 +291,7 @@ assert len(activations) == activations.count(None)
 
 _, cache = model.run_with_cache(
     input_ids.cuda(),
-    names_filter = lambda name: name.endswith("hook_v"), #  or name.endswith("ln2.hook_normalized"),
+    names_filter = lambda name: name.endswith("hook_k"), #  or name.endswith("ln2.hook_normalized"),
     device="cpu",
 )
 
@@ -302,7 +302,7 @@ fig = go.Figure()
 # add lines for each layer
 fig.add_trace(go.Scatter(
     x=np.arange(len(activations)//2),
-    y=torch.tensor([activations[i].norm() for i in range(len(activations)//2)]) / torch.tensor([cache[transformer_lens.utils.get_act_name("v", i)].norm() for i in range(len(activations)//2)]),
+    y=torch.tensor([activations[i].norm() for i in range(len(activations)//2)]) / torch.tensor([cache[transformer_lens.utils.get_act_name("k", i)].norm() for i in range(len(activations)//2)]),
     name="Ratio of resid_pre norms between HF model and TL",
 ))
 
