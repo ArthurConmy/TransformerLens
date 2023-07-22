@@ -236,13 +236,13 @@ from contextlib import contextmanager
 # (Alternatively, we could pick the module list containing >50% of model params.)
 def get_hookable_blocks(model):
     assert isinstance(model, LlamaForCausalLM)
-    return [layer for layer in model.model.layers] + [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))] 
+    return [model.model.layers[i].self_attn.v_proj for i in range(len(model.model.layers))] + [layer for layer in model.model.layers]
 
 @contextmanager
-def pre_hooks(hooks):
+def not_pre_hooks(hooks):
     try:
         print(str(hooks[0][0])[:50])
-        handles = [mod.register_forward_pre_hook(hook) for mod, hook in hooks]
+        handles = [mod.register_forward_hook(hook) for mod, hook in hooks]
         yield handles
     except Exception as e:
         print(e, "error")
@@ -258,14 +258,21 @@ def residual_stream(model: LlamaForCausalLM, layers: Optional[List[int]] = None)
 
     stream = [None] * len(get_hookable_blocks(model))
     layers = layers or range(len(stream))
-    def _make_hook(i):
+
+    def _make_pre_hook(i):
         def _hook(_, inputs):
             # concat along the sequence dimension
             stream[i] = inputs[0] if stream[i] is None else t.cat([stream[i], inputs[0]], dim=1)
         return _hook
 
+    def _make_hook(i):
+        def _hook(_, inputs, outputs):
+            # concat along the sequence dimension
+            stream[i] = outputs if stream[i] is None else t.cat([stream[i], outputs], dim=1)
+        return _hook
+
     hooks = [(layer, _make_hook(i)) for i, layer in enumerate(get_hookable_blocks(model)) if i in layers]
-    with pre_hooks(hooks):
+    with not_pre_hooks(hooks):
         yield stream
 
 # Sample text
@@ -284,7 +291,7 @@ assert len(activations) == activations.count(None)
 
 _, cache = model.run_with_cache(
     input_ids.cuda(),
-    names_filter = lambda name: name.endswith("resid_pre") or name.endswith("ln2.hook_normalized"),
+    names_filter = lambda name: name.endswith("hook_v"), #  or name.endswith("ln2.hook_normalized"),
     device="cpu",
 )
 
@@ -295,7 +302,7 @@ fig = go.Figure()
 # add lines for each layer
 fig.add_trace(go.Scatter(
     x=np.arange(len(activations)//2),
-    y=torch.tensor([activations[i].norm() for i in range(len(activations)//2)]) / torch.tensor([cache[transformer_lens.utils.get_act_name("resid_pre", i)].norm() for i in range(len(activations)//2)]),
+    y=torch.tensor([activations[i].norm() for i in range(len(activations)//2)]) / torch.tensor([cache[transformer_lens.utils.get_act_name("v", i)].norm() for i in range(len(activations)//2)]),
     name="Ratio of resid_pre norms between HF model and TL",
 ))
 
