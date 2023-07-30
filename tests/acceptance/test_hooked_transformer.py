@@ -97,6 +97,15 @@ def test_othello_gpt():
     assert (loss.item() - expected_loss) < 4e-5
 
 
+@pytest.mark.skip(
+    "The only GPTJForCausalLM model is GPT-J 6B which is huge and we don't want this to slow down tests"
+)
+def test_gptj_for_causallm():
+    model = HookedTransformer.from_pretrained("EleutherAI/gpt-j-6B")
+    loss = model(text, return_type="loss")
+    assert (loss.item() - 4.646186828613281) < 4e-5
+
+
 @pytest.mark.parametrize("name,expected_loss", no_processing)
 def test_from_pretrained_no_processing(name, expected_loss):
     # Checks if manually overriding the boolean flags in from_pretrained
