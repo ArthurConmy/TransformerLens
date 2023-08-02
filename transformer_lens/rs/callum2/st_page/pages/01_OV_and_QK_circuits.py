@@ -1,5 +1,9 @@
 import sys, os
+import streamlit as st
+st.write(os.getcwd())
 for root_dir in [
+    "/home/ubuntu/TransformerLens/transformer_lens/rs/callum2/st_page",
+    "app/st_page",
     os.getcwd().split("rs/")[0] + "rs/callum2/explore_prompts", # For Arthur's branch
     "/app/seri-mats-2023-streamlit-pages/explore_prompts", # For Streamlit page (public)
     os.getcwd().split("seri-mats-2023-streamlit-pages")[0] + "seri-mats-2023-streamlit-pages/explore_prompts", # For Arthur's branch
