@@ -405,7 +405,7 @@ for LAYER_IDX, HEAD_IDX in [(10, 7)] +  list(itertools.product(range(9, 12), ran
         )
 
         fig.update_layout(
-            title = f"Comparison of attention scores from parallel and perpendicular projections for Head {LAYER_IDX}.{HEAD_IDX}",
+            title = f"Comparison of attention score s from parallel and perpendicular projections for Head {LAYER_IDX}.{HEAD_IDX}",
             xaxis_title="Attention score from unembedding parallel projection",
             yaxis_title="Attention score from unembedding perpendicular projection",
         )
@@ -415,7 +415,7 @@ for LAYER_IDX, HEAD_IDX in [(10, 7)] +  list(itertools.product(range(9, 12), ran
         fig = hist(
             [xs, ys],
             labels={"variable": MODE + " input component", "value": "Attention"},
-            title=f"{LAYER_IDX}.{HEAD_IDX} attention probabilities under {MODE.lower()} interventions",
+            title=f"{LAYER_IDX}.{HEAD_IDX} attention probabilities under {MODE.lower()} projections",
             names=["Attention probability contribution from unembedding parallel projection", "Attention probability contribution from unembedding perpendicular projection"] if MODE == "Query" else ["Parallel", "Perpendicular"],
             width=800,
             height=600,

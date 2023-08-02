@@ -26,7 +26,10 @@ from torch.utils.data import Dataset, DataLoader
 from torch.distributions.categorical import Categorical
 import torch.nn.functional as F
 import pandas as pd
+import os
 if str(__file__).startswith("/code"): # Hofvarpnir seems annoying...
+    from tqdm import tqdm
+elif "arthur" in str(os.environ.get("CONDA_PREFIX")):
     from tqdm import tqdm
 else:
     from tqdm.auto import tqdm
