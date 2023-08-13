@@ -5,6 +5,7 @@ from transformer_lens.rs.arthurs_notebooks.induction_zero_utils import *
 
 # %%
 
+torch.manual_seed(2794979691)
 (
     model,
     validation_data,
@@ -12,8 +13,8 @@ from transformer_lens.rs.arthurs_notebooks.induction_zero_utils import *
     kl_divergence,
     negative_log_probs,
 ) = get_all_induction_things(
-    num_examples=30, 
-    seq_len=200, 
+    num_examples=10, 
+    seq_len=300, 
     device="cuda:0", 
     data_seed=42, 
     return_one_element=True, 
@@ -36,8 +37,9 @@ def setter_hook(z, hook, head_idx, new_val):
     z[:, :, head_idx] = new_val
     return z
 
-for head_indices in [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 6], [0, 1, 2, 3, 4, 5, 6]]:
-    for ablation_type in ["zero", "resample"]:
+for head_indices in [[0, 1, 2, 3, 4, 6]]:
+# [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 6], [0, 1, 2, 3, 4, 5, 6]]:
+    for ablation_type in ["random", "zero"]:
 
         model.reset_hooks()
 
@@ -63,8 +65,4 @@ for head_indices in [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 6], [0
         print(
             f"{head_indices=} {ablation_type=}: {val.item()}"
         )
-# %%
-
-another_model = transformer_lens.HookedTransformer.from_pretrained("attn-only-2l")
-
 # %%
