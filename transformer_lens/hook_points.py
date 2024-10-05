@@ -204,7 +204,7 @@ class HookedRootModule(nn.Module):
         self.is_caching = False
         self.context_level = 0
 
-    def setup(self):
+    def setup(self, naming_transformation: Callable[[str], str] = lambda x: x):
         """
         Sets up model.
 
@@ -219,10 +219,14 @@ class HookedRootModule(nn.Module):
             if name == "":
                 continue
             module.name = name
-            self.mod_dict[name] = module
-            # TODO: is the bottom line the same as "if "HookPoint" in str(type(module)):"
+            # TODO: is the below line the same as "if "HookPoint" in str(type(module)):"
             if isinstance(module, HookPoint):
-                self.hook_dict[name] = module
+                self.mod_dict[naming_transformation(name)] = module
+                module.name = naming_transformation(name)
+                self.hook_dict[naming_transformation(name)] = module
+            else:
+                self.mod_dict[name] = module
+
 
     def hook_points(self):
         return self.hook_dict.values()
