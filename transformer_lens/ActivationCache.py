@@ -672,7 +672,7 @@ class ActivationCache:
             self.cache_dict[f"blocks.{l}.attn.hook_result"] = einsum(
                 "... head_index d_head, head_index d_head d_model -> ... head_index d_model",
                 self[("z", l, "attn")],
-                self.model.blocks[l].attn.W_O,
+                self.model.W_O[l],
             )
 
     def stack_head_results(
