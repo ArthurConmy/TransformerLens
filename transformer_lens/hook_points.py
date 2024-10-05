@@ -59,6 +59,7 @@ HookFunction = _HookFunctionProtocol  # Callable[..., _HookFunctionProtocol]
 
 DeviceType = Optional[torch.device]
 _grad_t = Union[Tuple[torch.Tensor, ...], torch.Tensor]
+InputOrOutputCallable = Callable[[Union[torch.Tensor, Tuple[torch.Tensor, ...]]], Union[torch.Tensor, Tuple[torch.Tensor, ...]]]
 
 
 class HookPoint(nn.Module):
@@ -69,7 +70,11 @@ class HookPoint(nn.Module):
     intermediate activation in a HookPoint, it provides a convenient way to add PyTorch hooks.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        input_callable: Optional[InputOrOutputCallable] = None,
+        output_callable: Optional[InputOrOutputCallable] = None
+    ):
         super().__init__()
         self.fwd_hooks: List[LensHandle] = []
         self.bwd_hooks: List[LensHandle] = []
@@ -78,6 +83,9 @@ class HookPoint(nn.Module):
         # A variable giving the hook's name (from the perspective of the root
         # module) - this is set by the root module at setup.
         self.name: Union[str, None] = None
+
+        self.input_callable = input_callable
+        self.output_callable = output_callable
 
     def add_perma_hook(self, hook: HookFunction, dir: Literal["fwd", "bwd"] = "fwd") -> None:
         self.add_hook(hook, dir=dir, is_permanent=True)
@@ -102,11 +110,20 @@ class HookPoint(nn.Module):
             module_input: Any,
             module_output: Any,
         ):
+            if self.input_callable is not None:
+                module_output = self.input_callable(module_output)
+
             if (
                 dir == "bwd"
             ):  # For a backwards hook, module_output is a tuple of (grad,) - I don't know why.
                 module_output = module_output[0]
-            return hook(module_output, hook=self)
+            
+            hook_output = hook(module_output, hook=self)
+
+            if self.output_callable is not None and hook_output is not None:
+                hook_output = self.output_callable(hook_output)
+
+            return hook_output
 
         full_hook.__name__ = (
             hook.__repr__()
