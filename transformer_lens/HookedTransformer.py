@@ -113,6 +113,7 @@ class HookedTransformer(HookedRootModule):
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         move_to_device: bool = True,
         default_padding_side: Literal["left", "right"] = "right",
+        initialize_modules: bool = True,  # TODO(v0.1) in MishformerLens we need this, so upstream it
     ):
         """Model initialization.
 
@@ -175,44 +176,45 @@ class HookedTransformer(HookedRootModule):
                     "default_padding_side is explictly given but ignored because tokenizer is not set."
                 )
 
-        self.embed = Embed(self.cfg)
-        self.hook_embed = HookPoint()  # [batch, pos, d_model]
+        if initialize_modules:
+            self.embed = Embed(self.cfg)
+            self.hook_embed = HookPoint()  # [batch, pos, d_model]
 
-        if self.cfg.positional_embedding_type != "rotary":
-            self.pos_embed = PosEmbed(self.cfg)
-            self.hook_pos_embed = HookPoint()  # [batch, pos, d__dictmodel]
+            if self.cfg.positional_embedding_type != "rotary":
+                self.pos_embed = PosEmbed(self.cfg)
+                self.hook_pos_embed = HookPoint()  # [batch, pos, d__dictmodel]
 
-        if self.cfg.use_hook_tokens:
-            self.hook_tokens = HookPoint()  # [batch, pos]
+            if self.cfg.use_hook_tokens:
+                self.hook_tokens = HookPoint()  # [batch, pos]
 
-        self.blocks = nn.ModuleList(
-            [TransformerBlock(self.cfg, block_index) for block_index in range(self.cfg.n_layers)]
-        )
+            self.blocks = nn.ModuleList(
+                [TransformerBlock(self.cfg, block_index) for block_index in range(self.cfg.n_layers)]
+            )
 
-        if self.cfg.normalization_type == "RMS":
-            self.ln_final = RMSNorm(self.cfg)
-        elif self.cfg.normalization_type == "RMSPre":
-            self.ln_final = RMSNormPre(self.cfg)
-        elif self.cfg.normalization_type == "LN":
-            if self.cfg.final_rms:
+            if self.cfg.normalization_type == "RMS":
                 self.ln_final = RMSNorm(self.cfg)
-            else:
-                self.ln_final = LayerNorm(self.cfg)
-        elif self.cfg.normalization_type == "LNPre":
-            # We've folded in LayerNorm weights, so just need the center + scale parts
-            if self.cfg.final_rms:
+            elif self.cfg.normalization_type == "RMSPre":
                 self.ln_final = RMSNormPre(self.cfg)
+            elif self.cfg.normalization_type == "LN":
+                if self.cfg.final_rms:
+                    self.ln_final = RMSNorm(self.cfg)
+                else:
+                    self.ln_final = LayerNorm(self.cfg)
+            elif self.cfg.normalization_type == "LNPre":
+                # We've folded in LayerNorm weights, so just need the center + scale parts
+                if self.cfg.final_rms:
+                    self.ln_final = RMSNormPre(self.cfg)
+                else:
+                    self.ln_final = LayerNormPre(self.cfg)
+            elif self.cfg.normalization_type is None:
+                # If it's None, don't create either layer
+                pass
             else:
-                self.ln_final = LayerNormPre(self.cfg)
-        elif self.cfg.normalization_type is None:
-            # If it's None, don't create either layer
-            pass
-        else:
-            logging.warning("Invalid normalization_type passed in %s", self.cfg.normalization_type)
-        self.unembed = Unembed(self.cfg)
+                logging.warning("Invalid normalization_type passed in %s", self.cfg.normalization_type)
+            self.unembed = Unembed(self.cfg)
 
-        if self.cfg.init_weights:
-            self.init_weights()
+            if self.cfg.init_weights:
+                self.init_weights()
 
         if move_to_device:
             # We load the devices in a pipeline manner - the first device gets the embed and
