@@ -53,4 +53,6 @@ class LayerNorm(nn.Module):
             (x.pow(2).mean(-1, keepdim=True) + self.eps).sqrt()
         )
         x = x / scale  # [batch, pos, length]
+        # !!! WARNING: hook_normalized is applied after LN gain and bias,
+        # !!! (when the model has fold layer norm off). Consider a PR changing this.
         return self.hook_normalized(x * self.w + self.b).to(self.cfg.dtype)
